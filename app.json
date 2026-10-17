@@ -7,12 +7,9 @@
     "icon": "./assets/icon.png",
     "scheme": "medigo",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0B9E7A"
-    },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.medigo.chandigarh",
@@ -27,7 +24,10 @@
         "backgroundColor": "#0B9E7A"
       },
       "package": "com.medigo.chandigarh",
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +42,8 @@
           "photosPermission": "MediGo needs access to your photos so you can upload a prescription.",
           "cameraPermission": "MediGo needs camera access so you can take a photo of your prescription."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

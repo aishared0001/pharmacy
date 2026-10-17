@@ -1,10 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useCart, cartLines, cartCount } from '../../lib/cart-store';
 import { colors, font } from '../../constants/theme';
 
-function CartIcon({ color, size }: { color: string; size: number }) {
+function CartIcon({ color, size }: { color: ColorValue; size: number }) {
   const count = useCart((s) => cartCount(cartLines(s)));
   return (
     <View>
