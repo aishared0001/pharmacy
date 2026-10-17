@@ -1,5 +1,5 @@
 -- ===========================================================================
--- MediGo — Chandigarh pharmacy delivery
+-- MediGo - Chandigarh pharmacy delivery
 -- Schema + Row Level Security + Chandigarh delivery-area enforcement.
 -- Apply this in the Supabase SQL editor (or `supabase db push`).
 -- ===========================================================================
@@ -55,8 +55,8 @@ returns boolean
 language sql
 immutable
 as $$
-  select p ~ '^\d{6}$'
-     and p::int between 160001 and 160104;
+  select p ~ '^[0-9]{6}$'
+     and p >= '160001' and p <= '160104';
 $$;
 
 create table if not exists public.orders (
@@ -73,7 +73,8 @@ create table if not exists public.orders (
   address_line2 text,
   landmark text,
   city text not null default 'Chandigarh',
-  pincode text not null check (public.is_chandigarh_pincode(pincode)),
+  pincode text not null
+    check (pincode ~ '^[0-9]{6}$' and pincode >= '160001' and pincode <= '160104'),
   prescription_url text,
   payment_method text not null default 'COD' check (payment_method = 'COD'),
   created_at timestamptz not null default now()
