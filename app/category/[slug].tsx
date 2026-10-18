@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ProductCard from '../../components/ProductCard';
+import CartBar from '../../components/CartBar';
 import { EmptyState, Loading } from '../../components/ui';
 import { fetchCategories, fetchProducts } from '../../lib/api';
 import type { Category, Product } from '../../lib/types';
@@ -71,28 +72,30 @@ export default function CategoryScreen() {
   if (loading) return <Loading />;
 
   return (
-    <FlatList
-      style={{ backgroundColor: colors.background }}
-      data={products}
-      keyExtractor={(p) => p.id}
-      numColumns={2}
-      ListHeaderComponent={header}
-      contentContainerStyle={{ padding: spacing.sm, paddingBottom: spacing.xxl }}
-      columnWrapperStyle={{ justifyContent: 'space-between' }}
-      renderItem={({ item }) => (
-        <View style={{ width: '50%' }}>
-          <ProductCard product={item} />
-        </View>
-      )}
-      ListEmptyComponent={
-        <EmptyState
-          title={isSearch ? 'No matches' : 'No products yet'}
-          subtitle={
-            isSearch ? 'Try a different medicine name or salt.' : 'Check back soon.'
-          }
-        />
-      }
-    />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <FlatList
+        data={products}
+        keyExtractor={(p) => p.id}
+        numColumns={2}
+        ListHeaderComponent={header}
+        contentContainerStyle={{ padding: spacing.sm, paddingBottom: 96 }}
+        columnWrapperStyle={{ justifyContent: 'space-between' }}
+        renderItem={({ item }) => (
+          <View style={{ width: '50%' }}>
+            <ProductCard product={item} />
+          </View>
+        )}
+        ListEmptyComponent={
+          <EmptyState
+            title={isSearch ? 'No matches' : 'No products yet'}
+            subtitle={
+              isSearch ? 'Try a different medicine name or salt.' : 'Check back soon.'
+            }
+          />
+        }
+      />
+      <CartBar />
+    </View>
   );
 }
 
