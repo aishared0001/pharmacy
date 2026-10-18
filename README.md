@@ -89,24 +89,29 @@ account and start browsing.
 
 ### 5. Order emails
 
-Orders trigger the `send-order-email` Edge Function. Deploy it and set secrets
-with the [Supabase CLI](https://supabase.com/docs/guides/cli):
+Orders trigger the `send-order-email` Edge Function, which sends via **Gmail
+SMTP** (an App Password) so it can email both the owner alert and the customer
+confirmation to any address — no domain needed. Deploy it and set secrets with
+the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
 ```bash
 supabase functions deploy send-order-email
 
-supabase secrets set OWNER_EMAIL=aishared0001@gmail.com
-supabase secrets set FROM_EMAIL="MediGo <onboarding@resend.dev>"
-supabase secrets set RESEND_API_KEY=re_your_key   # from resend.com
+supabase secrets set GMAIL_USER=aishared0001@gmail.com
+supabase secrets set GMAIL_APP_PASSWORD="abcd efgh ijkl mnop"   # Google App Password
+supabase secrets set OWNER_EMAIL=aishared0001@gmail.com         # where alerts go
 ```
 
-- **Owner email** defaults to `aishared0001@gmail.com` if `OWNER_EMAIL` is unset.
-- **Until `RESEND_API_KEY` is set**, the function still runs and **logs** the
-  composed email (view it in the Supabase → Edge Functions → Logs) instead of
-  sending — so ordering works before email is wired up.
-- **Prefer Gmail/SMTP?** Swap the `sendViaResend` implementation in
-  `supabase/functions/send-order-email/index.ts` for an SMTP client (e.g.
-  `denomailer`) using a Gmail App Password stored as a secret.
+- **App Password**: in your Google Account → Security → turn on **2-Step
+  Verification**, then **App passwords** → generate one for "Mail". It's a
+  16-character code (spaces are ignored). This is NOT your normal Gmail password.
+- **Owner email** defaults to `GMAIL_USER` if `OWNER_EMAIL` is unset.
+- **Until the Gmail secrets are set**, the function still runs and **logs** the
+  composed email (Supabase → Edge Functions → Logs) instead of sending — so
+  ordering works before email is wired up.
+- Gmail allows ~500 emails/day, plenty for an MVP. For higher volume or a
+  branded `from` address later, switch to a transactional provider (e.g. Resend)
+  with a verified domain.
 
 ### 6. Make yourself an admin
 

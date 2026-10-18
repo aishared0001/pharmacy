@@ -6,20 +6,24 @@
 //   1. sends it to the store owner (OWNER_EMAIL), and
 //   2. sends an order confirmation to the customer.
 //
-// Email provider is pluggable. By default it uses Resend (set RESEND_API_KEY).
-// If no provider key is configured, it logs the composed email instead of
-// failing — so the app works end-to-end before email is wired up.
+// Email is sent through Gmail SMTP using an App Password, so it can deliver to
+// any recipient (owner alert + customer confirmation) without owning a domain.
+// If the Gmail secrets are not configured, it logs the composed email instead
+// of failing — so the app works end-to-end before email is wired up.
 //
 // Deploy:  supabase functions deploy send-order-email
-// Secrets: supabase secrets set OWNER_EMAIL=... FROM_EMAIL=... RESEND_API_KEY=...
+// Secrets: supabase secrets set OWNER_EMAIL=... GMAIL_USER=... GMAIL_APP_PASSWORD=...
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const OWNER_EMAIL = Deno.env.get('OWNER_EMAIL') ?? 'aishared0001@gmail.com';
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'MediGo <onboarding@resend.dev>';
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
+// The Gmail account that sends the mail (also the default owner-alert address).
+const GMAIL_USER = Deno.env.get('GMAIL_USER') ?? '';
+const GMAIL_APP_PASSWORD = (Deno.env.get('GMAIL_APP_PASSWORD') ?? '').replace(/\s+/g, '');
+// Where owner alerts go. Defaults to the sending Gmail account.
+const OWNER_EMAIL = Deno.env.get('OWNER_EMAIL') ?? GMAIL_USER ?? 'aishared0001@gmail.com';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -129,32 +133,39 @@ function buildEmails(order: OrderRow, customerEmail: string | null) {
   };
 }
 
-async function sendViaResend(msg: { to: string; subject: string; html: string }) {
-  if (!RESEND_API_KEY) {
-    console.log('[send-order-email] No RESEND_API_KEY set. Would send email:', {
-      to: msg.to,
-      subject: msg.subject,
-    });
-    return { skipped: true };
-  }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
+const gmailConfigured = GMAIL_USER.length > 0 && GMAIL_APP_PASSWORD.length > 0;
+
+function makeClient(): SMTPClient {
+  return new SMTPClient({
+    connection: {
+      hostname: 'smtp.gmail.com',
+      port: 465,
+      tls: true,
+      auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
     },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [msg.to],
-      subject: msg.subject,
-      html: msg.html,
-    }),
   });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Resend error ${res.status}: ${body}`);
-  }
-  return await res.json();
+}
+
+// Strip HTML tags for a plain-text fallback part.
+function toText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function sendViaGmail(
+  client: SMTPClient,
+  msg: { to: string; subject: string; html: string },
+) {
+  await client.send({
+    from: `MediGo <${GMAIL_USER}>`,
+    to: msg.to,
+    subject: msg.subject,
+    html: msg.html,
+    content: toText(msg.html),
+  });
+  return { sent: true, to: msg.to };
 }
 
 Deno.serve(async (req) => {
@@ -193,10 +204,46 @@ Deno.serve(async (req) => {
 
     const emails = buildEmails(order as OrderRow, customerEmail);
 
+    // If Gmail isn't configured yet, log the composed email and succeed so the
+    // order flow is never blocked.
+    if (!gmailConfigured) {
+      console.log('[send-order-email] Gmail not configured. Would send:', {
+        owner: { to: emails.owner.to, subject: emails.owner.subject },
+        customer: emails.customer
+          ? { to: emails.customer.to, subject: emails.customer.subject }
+          : null,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, order: emails.shortId, skipped: 'gmail-not-configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Send both emails independently so one failing (e.g. a bad customer
+    // address) never stops the other.
+    const client = makeClient();
     const results: Record<string, unknown> = {};
-    results.owner = await sendViaResend(emails.owner);
-    if (emails.customer) {
-      results.customer = await sendViaResend(emails.customer);
+    try {
+      try {
+        results.owner = await sendViaGmail(client, emails.owner);
+      } catch (e) {
+        results.owner = { error: String(e) };
+        console.error('[send-order-email] owner email failed:', e);
+      }
+      if (emails.customer) {
+        try {
+          results.customer = await sendViaGmail(client, emails.customer);
+        } catch (e) {
+          results.customer = { error: String(e) };
+          console.error('[send-order-email] customer email failed:', e);
+        }
+      }
+    } finally {
+      try {
+        await client.close();
+      } catch (_) {
+        // ignore close errors
+      }
     }
 
     return new Response(
