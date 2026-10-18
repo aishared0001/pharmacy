@@ -50,6 +50,12 @@ export default function ProfileScreen() {
       {saved ? <Text style={styles.saved}>Saved.</Text> : null}
       <Button title="Save changes" onPress={onSave} loading={saving} />
 
+      <Pressable style={styles.adminRow} onPress={() => router.push('/addresses')}>
+        <Ionicons name="location-outline" size={20} color={colors.primary} />
+        <Text style={styles.adminRowText}>Saved addresses</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+
       {profile?.is_admin ? (
         <Pressable style={styles.adminRow} onPress={() => router.push('/admin')}>
           <Ionicons name="construct-outline" size={20} color={colors.primary} />

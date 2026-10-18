@@ -47,6 +47,20 @@ export type Profile = {
   is_admin: boolean;
 };
 
+export type Address = {
+  id: string;
+  user_id: string;
+  full_name: string;
+  phone: string;
+  address_line1: string;
+  address_line2: string | null;
+  landmark: string | null;
+  city: string;
+  pincode: string;
+  is_default: boolean;
+  created_at: string;
+};
+
 export type OrderStatus = 'placed' | 'confirmed' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export type OrderItem = {

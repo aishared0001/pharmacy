@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -21,11 +22,12 @@ import {
   cartDeliveryFee,
   cartNeedsPrescription,
 } from '../lib/cart-store';
-import { placeOrder } from '../lib/api';
+import { placeOrder, fetchAddresses, createAddress } from '../lib/api';
 import { uploadPrescription } from '../lib/storage';
 import { isChandigarhPincode, OUT_OF_AREA_MESSAGE, CITY_NAME } from '../constants/chandigarh';
 import { colors, font, radius, spacing } from '../constants/theme';
 import { formatINR } from '../lib/format';
+import type { Address } from '../lib/types';
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -47,12 +49,45 @@ export default function CheckoutScreen() {
   const [pincode, setPincode] = useState('');
   const [rxImage, setRxImage] = useState<string | null>(null);
 
+  const [saved, setSaved] = useState<Address[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saveForLater, setSaveForLater] = useState(true);
+
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function fillFrom(a: Address) {
+    setFullName(a.full_name);
+    setPhone(a.phone);
+    setLine1(a.address_line1);
+    setLine2(a.address_line2 ?? '');
+    setLandmark(a.landmark ?? '');
+    setPincode(a.pincode);
+    setSelectedId(a.id);
+  }
+
+  // Load saved addresses; prefill with the default (or most recent) one.
   useEffect(() => {
-    setFullName(profile?.full_name ?? '');
-    setPhone(profile?.phone ?? '');
+    let active = true;
+    (async () => {
+      try {
+        const list = await fetchAddresses();
+        if (!active) return;
+        setSaved(list);
+        if (list.length > 0) {
+          fillFrom(list[0]);
+        } else {
+          setFullName(profile?.full_name ?? '');
+          setPhone(profile?.phone ?? '');
+        }
+      } catch {
+        setFullName(profile?.full_name ?? '');
+        setPhone(profile?.phone ?? '');
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [profile]);
 
   // Guard: if cart empties (e.g. after placing), leave.
@@ -74,6 +109,18 @@ export default function CheckoutScreen() {
       setRxImage(result.assets[0].uri);
       setError(null);
     }
+  }
+
+  function currentMatchesSaved(): boolean {
+    return saved.some(
+      (a) =>
+        a.full_name === fullName.trim() &&
+        a.phone === phone.trim() &&
+        a.address_line1 === line1.trim() &&
+        (a.address_line2 ?? '') === line2.trim() &&
+        (a.landmark ?? '') === landmark.trim() &&
+        a.pincode === pincode.trim(),
+    );
   }
 
   function validate(): string | null {
@@ -117,6 +164,23 @@ export default function CheckoutScreen() {
           pincode: pincode.trim(),
         },
       });
+      // Save this address for next time (skip if it duplicates a saved one).
+      if (saveForLater && !currentMatchesSaved()) {
+        try {
+          await createAddress(session.user.id, {
+            full_name: fullName.trim(),
+            phone: phone.trim(),
+            address_line1: line1.trim(),
+            address_line2: line2.trim() || null,
+            landmark: landmark.trim() || null,
+            pincode: pincode.trim(),
+            is_default: saved.length === 0,
+          });
+        } catch {
+          // Non-fatal: the order is already placed.
+        }
+      }
+
       clear();
       router.replace(`/order/${order.id}?justPlaced=1`);
     } catch (e: any) {
@@ -138,8 +202,64 @@ export default function CheckoutScreen() {
           <Text style={styles.areaText}>We deliver only within {CITY_NAME} (PIN 160001–160104).</Text>
         </View>
 
+        {saved.length > 0 ? (
+          <>
+            <Text style={styles.section}>Saved addresses</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+            >
+              {saved.map((a) => {
+                const active = a.id === selectedId;
+                return (
+                  <Pressable
+                    key={a.id}
+                    onPress={() => fillFrom(a)}
+                    style={[styles.savedCard, active && styles.savedCardActive]}
+                  >
+                    <View style={styles.savedCardHead}>
+                      <Text style={styles.savedName} numberOfLines={1}>
+                        {a.full_name}
+                      </Text>
+                      {a.is_default ? <Text style={styles.defaultTag}>Default</Text> : null}
+                    </View>
+                    <Text style={styles.savedLine} numberOfLines={2}>
+                      {a.address_line1}
+                      {a.address_line2 ? `, ${a.address_line2}` : ''}
+                    </Text>
+                    <Text style={styles.savedLine}>
+                      {a.city} - {a.pincode}
+                    </Text>
+                    {active ? (
+                      <View style={styles.savedCheck}>
+                        <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              onPress={() => {
+                setSelectedId(null);
+                setFullName(profile?.full_name ?? '');
+                setPhone(profile?.phone ?? '');
+                setLine1('');
+                setLine2('');
+                setLandmark('');
+                setPincode('');
+              }}
+              style={styles.newAddrBtn}
+            >
+              <Ionicons name="add" size={16} color={colors.primary} />
+              <Text style={styles.newAddrText}>Use a new address</Text>
+            </Pressable>
+          </>
+        ) : null}
+
         <Text style={styles.section}>Delivery address</Text>
-        <Field label="Full name" value={fullName} onChangeText={setFullName} />
+        <Field label="Full name" value={fullName} onChangeText={(t) => { setFullName(t); setSelectedId(null); }} />
         <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="10-digit mobile" />
         <Field label="House / Flat / Street" value={line1} onChangeText={setLine1} />
         <Field label="Area / Sector (optional)" value={line2} onChangeText={setLine2} />
@@ -153,6 +273,18 @@ export default function CheckoutScreen() {
           placeholder="160XXX"
           error={!pinValid ? OUT_OF_AREA_MESSAGE : null}
         />
+
+        <View style={styles.saveRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.saveLabel}>Save this address for next time</Text>
+            <Text style={styles.saveHint}>Reuse it at checkout without retyping.</Text>
+          </View>
+          <Switch
+            value={saveForLater}
+            onValueChange={setSaveForLater}
+            trackColor={{ true: colors.primary }}
+          />
+        </View>
 
         {needsRx ? (
           <Card style={{ marginBottom: spacing.lg }}>
@@ -223,6 +355,43 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   areaText: { color: colors.primaryDark, fontSize: font.small, flex: 1 },
+  savedCard: {
+    width: 220,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  savedCardActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  savedCardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  savedName: { fontWeight: '700', color: colors.text, flex: 1 },
+  defaultTag: { fontSize: font.tiny, color: colors.primary, fontWeight: '700' },
+  savedLine: { color: colors.textMuted, fontSize: font.small, marginTop: 2 },
+  savedCheck: { position: 'absolute', top: spacing.sm, right: spacing.sm },
+  newAddrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  newAddrText: { color: colors.primary, fontWeight: '700', fontSize: font.small },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  saveLabel: { fontWeight: '700', color: colors.text },
+  saveHint: { color: colors.textMuted, fontSize: font.tiny, marginTop: 2 },
   section: { fontSize: font.h3, fontWeight: '800', color: colors.text, marginBottom: spacing.md, marginTop: spacing.sm },
   rxTitle: { fontWeight: '800', color: colors.rxBadge, marginBottom: spacing.xs },
   rxText: { color: colors.textMuted, fontSize: font.small, marginBottom: spacing.md },

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Category, Order, Product, Profile } from './types';
+import type { Address, Category, Order, Product, Profile } from './types';
 import type { CartLine } from './cart-store';
 
 // ---------------------------------------------------------------------------
@@ -62,6 +62,67 @@ export async function upsertProfile(
     .from('profiles')
     .update(fields)
     .eq('id', id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Saved addresses
+// ---------------------------------------------------------------------------
+
+export type AddressInput = {
+  full_name: string;
+  phone: string;
+  address_line1: string;
+  address_line2?: string | null;
+  landmark?: string | null;
+  pincode: string;
+  is_default?: boolean;
+};
+
+export async function fetchAddresses(): Promise<Address[]> {
+  const { data, error } = await supabase
+    .from('addresses')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as Address[]) ?? [];
+}
+
+export async function createAddress(userId: string, input: AddressInput): Promise<Address> {
+  const makeDefault = input.is_default ?? false;
+  if (makeDefault) await clearDefaultAddresses(userId);
+  const { data, error } = await supabase
+    .from('addresses')
+    .insert({
+      user_id: userId,
+      full_name: input.full_name,
+      phone: input.phone,
+      address_line1: input.address_line1,
+      address_line2: input.address_line2 ?? null,
+      landmark: input.landmark ?? null,
+      city: 'Chandigarh',
+      pincode: input.pincode,
+      is_default: makeDefault,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Address;
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  const { error } = await supabase.from('addresses').delete().eq('id', id);
+  if (error) throw error;
+}
+
+async function clearDefaultAddresses(userId: string): Promise<void> {
+  await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId);
+}
+
+export async function setDefaultAddress(userId: string, id: string): Promise<void> {
+  await clearDefaultAddresses(userId);
+  const { error } = await supabase.from('addresses').update({ is_default: true }).eq('id', id);
   if (error) throw error;
 }
 
