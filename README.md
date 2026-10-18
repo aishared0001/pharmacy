@@ -61,7 +61,7 @@ npm install
 In your Supabase project → **SQL Editor**, run these two files in order:
 
 1. `supabase/migrations/0001_init.sql` — tables, RLS, Chandigarh rule, buckets
-2. `supabase/seed/seed_medicines.sql` — 12 categories + ~96 sample medicines
+2. `supabase/seed/seed_medicines.sql` — 22 categories + ~500 sample medicines
 
 (To regenerate the seed after editing the dataset: `node supabase/seed/generate.mjs`.)
 
