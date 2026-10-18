@@ -1893,27 +1893,43 @@ delete from public.categories;
 
 `;
 
-sql += 'insert into public.categories (name, slug, sort_order) values\n';
-sql +=
+const categoriesInsert =
+  'insert into public.categories (name, slug, sort_order) values\n' +
   categories.map(([slug, name, sort]) => `  (${esc(name)}, ${esc(slug)}, ${sort})`).join(',\n') +
-  ';\n\n';
+  ';\n';
 
-sql +=
+const rowSql = rows.map(
+  (r) =>
+    `  (${esc(r.name)}, ${esc(r.generic)}, ${esc(r.brand)}, null, ` +
+    `(select id from public.categories where slug = ${esc(r.cat)}), ` +
+    `${esc(r.price)}, ${esc(r.mrp)}, ${esc(r.pack)}, ${esc(r.rx)}, ${esc(r.form)}, ` +
+    `${esc(r.description)}, ${esc(r.uses)}, ${esc(r.side)})`,
+);
+
+const PRODUCT_COLS =
   'insert into public.products\n' +
   '  (name, generic_name, brand, manufacturer, category_id, price, mrp, ' +
   'pack_size, prescription_required, form, description, uses, side_effects)\n' +
-  'values\n' +
-  rows
-    .map(
-      (r) =>
-        `  (${esc(r.name)}, ${esc(r.generic)}, ${esc(r.brand)}, null, ` +
-        `(select id from public.categories where slug = ${esc(r.cat)}), ` +
-        `${esc(r.price)}, ${esc(r.mrp)}, ${esc(r.pack)}, ${esc(r.rx)}, ${esc(r.form)}, ` +
-        `${esc(r.description)}, ${esc(r.uses)}, ${esc(r.side)})`,
-    )
-    .join(',\n') +
-  ';\n\ncommit;\n';
+  'values\n';
+
+sql += categoriesInsert + '\n' + PRODUCT_COLS + rowSql.join(',\n') + ';\n\ncommit;\n';
 
 const out = join(__dirname, 'seed_medicines.sql');
 writeFileSync(out, sql);
 console.log(`Wrote ${rows.length} products across ${categories.length} categories -> ${out}`);
+
+// --- Also emit small chunked files that paste reliably into the SQL editor ---
+const CHUNK = 100;
+const numParts = Math.ceil(rowSql.length / CHUNK);
+for (let i = 0; i < numParts; i++) {
+  const slice = rowSql.slice(i * CHUNK, (i + 1) * CHUNK);
+  let part = `-- MediGo seed - part ${i + 1} of ${numParts}. Run parts in order (1,2,3...).\n` +
+    `-- Auto-generated; paste this whole file into a new Supabase SQL query and Run.\n\nbegin;\n\n`;
+  if (i === 0) {
+    part += 'delete from public.products;\ndelete from public.categories;\n\n' + categoriesInsert + '\n';
+  }
+  part += PRODUCT_COLS + slice.join(',\n') + ';\n\ncommit;\n';
+  const pf = join(__dirname, `seed_part_${i + 1}.sql`);
+  writeFileSync(pf, part);
+}
+console.log(`Wrote ${numParts} chunked part files (seed_part_1.sql ... seed_part_${numParts}.sql)`);
