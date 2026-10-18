@@ -21,7 +21,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0B9E7A"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.medigo.chandigarh",
       "permissions": [
@@ -43,7 +43,16 @@
           "cameraPermission": "MediGo needs camera access so you can take a photo of your prescription."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

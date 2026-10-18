@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useCart, cartLines, cartCount } from '../../lib/cart-store';
 import { colors, font } from '../../constants/theme';
@@ -31,7 +32,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'MediGo',
+          headerTitle: () => (
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.headerLogo}
+              contentFit="contain"
+            />
+          ),
+          headerTitleAlign: 'center',
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
@@ -81,4 +89,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: font.tiny, fontWeight: '800' },
+  headerLogo: { width: 120, height: 40 },
 });

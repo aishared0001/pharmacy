@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -51,7 +52,11 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.brandWrap}>
-            <Text style={styles.brand}>MediGo</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
             <Text style={styles.tagline}>Medicines delivered across Chandigarh</Text>
           </View>
 
@@ -93,7 +98,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.xl, flexGrow: 1, justifyContent: 'center' },
   brandWrap: { alignItems: 'center', marginBottom: spacing.xxl },
-  brand: { fontSize: 40, fontWeight: '800', color: colors.primary },
+  logo: { width: 200, height: 148 },
   tagline: { color: colors.textMuted, marginTop: spacing.xs },
   heading: { fontSize: font.h2, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   error: { color: colors.danger, marginBottom: spacing.md },

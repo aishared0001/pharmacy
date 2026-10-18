@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -66,6 +67,11 @@ export default function RegisterScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logo}
+            contentFit="contain"
+          />
           <Text style={styles.brand}>Create your account</Text>
           <Text style={styles.tagline}>Order medicines for delivery in Chandigarh</Text>
 
@@ -115,7 +121,8 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.xl, flexGrow: 1, justifyContent: 'center' },
-  brand: { fontSize: font.h1, fontWeight: '800', color: colors.primary },
+  logo: { width: 150, height: 111, marginBottom: spacing.md },
+  brand: { fontSize: font.h1, fontWeight: '800', color: colors.text },
   tagline: { color: colors.textMuted, marginTop: spacing.xs },
   error: { color: colors.danger, marginBottom: spacing.md },
   notice: { color: colors.success, marginBottom: spacing.md },
