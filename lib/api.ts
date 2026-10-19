@@ -15,27 +15,55 @@ export async function fetchCategories(): Promise<Category[]> {
   return (data as Category[]) ?? [];
 }
 
+export type ProductSort = 'name' | 'price_asc' | 'price_desc';
+export type RxFilter = 'all' | 'rx' | 'otc';
+
 export async function fetchProducts(opts?: {
   categoryId?: string;
   search?: string;
   limit?: number;
+  sort?: ProductSort;
+  rx?: RxFilter;
 }): Promise<Product[]> {
   let query = supabase
     .from('products')
     .select('*, category:categories(*)')
-    .eq('in_stock', true)
-    .order('name', { ascending: true });
+    .eq('in_stock', true);
+
+  // Sort
+  const sort = opts?.sort ?? 'name';
+  if (sort === 'price_asc') query = query.order('price', { ascending: true });
+  else if (sort === 'price_desc') query = query.order('price', { ascending: false });
+  else query = query.order('name', { ascending: true });
 
   if (opts?.categoryId) query = query.eq('category_id', opts.categoryId);
+
+  // Rx / OTC filter
+  if (opts?.rx === 'rx') query = query.eq('prescription_required', true);
+  else if (opts?.rx === 'otc') query = query.eq('prescription_required', false);
+
+  // Search also matches the salt and what the medicine is used for (symptoms).
   if (opts?.search && opts.search.trim()) {
     const term = `%${opts.search.trim()}%`;
     query = query.or(
-      `name.ilike.${term},generic_name.ilike.${term},brand.ilike.${term}`,
+      `name.ilike.${term},generic_name.ilike.${term},brand.ilike.${term},` +
+        `uses.ilike.${term},description.ilike.${term}`,
     );
   }
   if (opts?.limit) query = query.limit(opts.limit);
 
   const { data, error } = await query;
+  if (error) throw error;
+  return (data as Product[]) ?? [];
+}
+
+// Fetch current product rows for a set of ids (used by Reorder).
+export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories(*)')
+    .in('id', ids);
   if (error) throw error;
   return (data as Product[]) ?? [];
 }
