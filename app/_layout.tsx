@@ -3,7 +3,9 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../lib/auth-store';
+import { registerForPushNotifications } from '../lib/notifications';
 import { Loading } from '../components/ui';
 import { colors } from '../constants/theme';
 
@@ -27,6 +29,20 @@ export default function RootLayout() {
       router.replace('/(tabs)');
     }
   }, [session, segments, initializing, router]);
+
+  // Register this device for order-update push notifications once logged in.
+  useEffect(() => {
+    if (session?.user?.id) registerForPushNotifications(session.user.id);
+  }, [session?.user?.id]);
+
+  // Tapping a notification opens the related order.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const orderId = (response.notification.request.content.data as any)?.orderId;
+      if (orderId) router.push(`/order/${orderId}`);
+    });
+    return () => sub.remove();
+  }, [router]);
 
   if (initializing) {
     return (

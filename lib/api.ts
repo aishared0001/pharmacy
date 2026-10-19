@@ -322,4 +322,10 @@ export async function fetchAllOrders(): Promise<Order[]> {
 export async function updateOrderStatus(id: string, status: Order['status']): Promise<void> {
   const { error } = await supabase.from('orders').update({ status }).eq('id', id);
   if (error) throw error;
+  // Notify the customer by push (non-fatal if it fails or isn't set up yet).
+  try {
+    await supabase.functions.invoke('notify-order-status', { body: { order_id: id } });
+  } catch (e) {
+    console.warn('[MediGo] notify-order-status failed:', e);
+  }
 }
