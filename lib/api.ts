@@ -178,9 +178,24 @@ export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
 
   if (error) throw error;
 
+  // Guard against stale cart items (e.g. after the catalogue was re-seeded and
+  // product ids changed): link only to product ids that still exist, and keep
+  // the name/price snapshot either way so the order is never rejected.
+  const cartProductIds = input.lines.map((l) => l.product.id);
+  let validIds = new Set<string>();
+  try {
+    const { data: existing } = await supabase
+      .from('products')
+      .select('id')
+      .in('id', cartProductIds);
+    validIds = new Set((existing ?? []).map((p: { id: string }) => p.id));
+  } catch {
+    // If the lookup fails, fall back to storing items without a product link.
+  }
+
   const items = input.lines.map((l) => ({
     order_id: (order as Order).id,
-    product_id: l.product.id,
+    product_id: validIds.has(l.product.id) ? l.product.id : null,
     name: l.product.name,
     price: l.product.price,
     quantity: l.quantity,
